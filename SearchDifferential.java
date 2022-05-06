@@ -132,7 +132,6 @@ public class SearchDifferential {
         getMinMaxIndexsOfPoints(values);
         double[] C = getCenterOfGravity(points);
         double[] R, S, Z;
-
         while(checkForCompletion(values, C) > _epsilon){
             R = functionReflecting(points, C);
             if(f(R) < values[_L]) {
@@ -162,5 +161,103 @@ public class SearchDifferential {
             C = getCenterOfGravity(points);
         }
         return C;
+    }
+    /*
+    ____________________________________________________________________________________________________________________
+    ____________________________________________________________________________________________________________________
+    ____________________________________________________________________________________________________________________
+    ____________________________________________________________________________________________________________________
+    ____________________________________________________________________________________________________________________
+     */
+
+    private double[] getGradient(double[] vector){
+        double step = 1e-1;
+        double[] grad = new double[_NDIM], temp = new double[_NDIM];
+
+        for (byte i = 0; i < _NDIM; i++) {
+            for(byte j = 0; j < _NDIM; j++){
+                if(i == j){
+                    temp[j] = vector[j] + step;
+                    continue;
+                }
+                temp[j] = vector[j];
+            }
+            grad[i] = (f(temp) - f(vector)) / step;
+        }
+        return grad;
+    }
+
+    private double getNorm(double[] vector) {
+        double result = 0;
+        for (double aVector : vector) {
+            result += aVector * aVector;
+        }
+        return Math.sqrt(result);
+
+    }
+
+    /*public double DichotomySearch(double delta, double e, double a, double b, double[] u) {
+        double x_1 = (a + b)/ 2 - e;
+        double x_2 = (a + b)/ 2 + e;
+        double _delta = b-a;
+        while(delta < _delta) {
+            if(fun(x_1, u) <= fun(x_2, u)) {
+                b = x_2;
+            }
+            else {
+                a = x_1;
+            }
+            x_1 = (a + b) / 2 - e;
+            x_2 = (a + b) / 2 + e;
+            _delta = b - a;
+        }
+        return (a + b) / 2;
+    }*/
+
+    private double DichotomySearch(double a, double b, double[] u, double e) {
+        double del = e / 10;
+        double x1, x2;
+        do {
+            x1 = (b + a - del) / 2;
+            x2 = (b + a + del) / 2;
+            double i1 = getNextPoint(x1, u);
+            double i2 = getNextPoint(x2, u);
+            if (i1 < i2) {
+                b = x2;
+            } else if (i1 > i2) {
+                a = x1;
+            } else {
+                a = x1;
+                b = x2;
+            }
+        } while (Math.abs(b - a) >= e);
+
+        return (b + a) / 2;
+    }
+
+    // Вспомогательная функция для выбора направления спуска методом дихотомии
+    private double getNextPoint(double alpha, double[] u0) {
+        double[] gradI0 = getGradient(u0);
+
+        double[] u = new double[u0.length];
+        for (int i = 0; i < u.length; i++) {
+            u[i] = u0[i] - alpha * gradI0[0];
+        }
+        return f(u);
+    }
+
+
+
+    public double[] findBySteepestDescent(double[] u, double eps) {
+        double[] gradI0 = getGradient(u);
+        while (Math.abs(getNorm(gradI0)) > eps) {
+            double b = 1;
+            double alpha = DichotomySearch(0, b, u, eps);
+            for (int i = 0; i < u.length; i++) {
+                u[i] -= alpha * gradI0[i];
+            }
+            gradI0 = getGradient(u);
+        }
+        return u;
     }
 }

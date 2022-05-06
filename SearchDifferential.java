@@ -3,6 +3,7 @@ package com.differential;
 public class SearchDifferential {
     private int _iteration = 0;
 
+    // Константы для метода Нелдера-Мида
     private final double _alpha = 1.0;
     private final double _beta = 0.5;
     private final double _gamma = 2.0;
@@ -16,6 +17,12 @@ public class SearchDifferential {
 
     public double f(double[] x) { return Math.pow((x[0] - 1),4) + Math.pow((x[1] - 3), 2) + 4 * Math.pow((x[2] + 5), 4); } // Заданная функция (x1-1)^4+(x2-3)^2+4*(x3+5)^4
 
+    public int getIteration() { return _iteration; } // Метод возвращающий число итераций
+
+    /**
+     * Метод, который инициализирует вершины симплекса
+     * @return Массив вершин симплекса
+     */
     public double[][] getRegularSimplex() {
         double[][] points = new double[_NDIM + 1][_NDIM];
         for (int j = 0; j < _NDIM + 1; j++) {
@@ -34,6 +41,11 @@ public class SearchDifferential {
         return points;
     }
 
+    /**
+     * Метод, который находит значения функции в точках
+     * @param points - массив вершин симплекса
+     * @return Массив значений фукнции в точках
+     */
     public double[] getFunctionValues(double[][] points){
         double[] values = new double[_NDIM+1];
         for(int i = 0; i <= _NDIM; i++){
@@ -42,6 +54,13 @@ public class SearchDifferential {
         return values;
     }
 
+    /**
+     * Процедура, которая находит индексы минимального и максимального значения
+     * в точках (значениях функции)
+     * @param values - массив значений функции в точках
+     * Присваивает значения минимального и максимального индекса для глобальных
+     *               переменных _L и _H
+     */
     public void getMinMaxIndexsOfPoints(double[] values) {
         for (int j = 0; j < _NDIM + 1; j++){//поиск H и L - индексов вершин с макс. и мин. значениями функции{
             if (values[j] > values[_H]) {
@@ -53,6 +72,11 @@ public class SearchDifferential {
         }
     }
 
+    /**
+     * Метод, который ищет центр тяжести всех вершин за исключением points[_H]
+     * @param points - массив вершин симплекса
+     * @return Массив центра тяжести симплекса
+     */
     public double[] getCenterOfGravity(double[][] points){
         double sum;
         double[] C = new double[_NDIM];
@@ -66,18 +90,30 @@ public class SearchDifferential {
         return C;
     }
 
-    public double checkForCompletion(double[] values, double[] C){
+    /**
+     * Проверка на завершенность
+     * @param values - массив значений функции в точках
+     * @param valuesCenter - массив центра тяжести симплекса
+     * @return Значение суммы
+     */
+    public double checkForCompletion(double[] values, double[] valuesCenter){
         double sum = 0;
         for(int i = 0; i <= _NDIM; i++){
-            sum += Math.pow(values[i] - f(C), 2);
+            sum += Math.pow(values[i] - f(valuesCenter), 2);
         }
         return Math.sqrt((1.0/(_NDIM+1))*sum);
     }
 
-    public boolean checkForStretching(double[] values, double[] R){
+    /**
+     * Проверка на сжатие
+     * @param values - массив значений функции в точках
+     * @param valuesReflect - массив значений сжатия вершин симплекса
+     * @return true - сжатие эффективно > редукция вершин, false - если сжатие неэффективно < редукция
+     */
+    public boolean checkForStretching(double[] values, double[] valuesReflect){
         for (int j = 0; j < _NDIM + 1; j++) {
             if (j != _H) {
-                if (f(R) < values[j]) {
+                if (f(valuesReflect) < values[j]) {
                     return false;
                 }
             }
@@ -85,30 +121,53 @@ public class SearchDifferential {
         return true;
     }
 
-    public double[] functionReflecting(double[][] points, double[] C){
-        double[] R = new double[_NDIM];
+    /**
+     * Функция отражения вершин симплекса
+     * @param points - массив вершин симплекса
+     * @param valuesCenter - массив центра тяжести симплекса
+     * @return Массив точек отражения вершин симплекса
+     */
+    public double[] functionReflecting(double[][] points, double[] valuesCenter){
+        double[] valuesReflect = new double[_NDIM];
         for(int i = 0; i < _NDIM; i++){
-            R[i]=C[i]+_alpha*(C[i]-points[_H][i]);
+            valuesReflect[i] = valuesCenter[i] + _alpha * (valuesCenter[i] - points[_H][i]);
         }
-        return R;
+        return valuesReflect;
     }
 
-    public double[] functionStretching(double[] R, double[] C){
-        double[] S = new double[_NDIM];
+    /**
+     * Функция растяжения вершин симплекса
+     * @param valuesReflect - массив значений сжатия вершин симплекса
+     * @param valuesCenter - массив центра тяжести симплекса
+     * @return Массив точек растяжения вершин симплекса
+     */
+    public double[] functionStretching(double[] valuesReflect, double[] valuesCenter){
+        double[] valuesStretch = new double[_NDIM];
         for(int i = 0; i < _NDIM; i++){
-            S[i]=C[i]+_gamma*(R[i]-C[i]);
+            valuesStretch[i]=valuesCenter[i]+_gamma*(valuesReflect[i]-valuesCenter[i]);
         }
-        return S;
+        return valuesStretch;
     }
 
-    public double[] functionZipping(double[] C, double[][] points){
-        double[] Z = new double[_NDIM];
+    /**
+     * Функция сжатия вершин симплекса
+     * @param valuesCenter - массив центра тяжести симплекса
+     * @param points - массив вершин симплекса
+     * @return Массив точек сжатия вершин симплекса
+     */
+    public double[] functionZipping(double[] valuesCenter, double[][] points){
+        double[] valuesZip = new double[_NDIM];
         for(int i = 0; i < _NDIM; i++) {
-            Z[i]=C[i]+_beta*(points[_H][i]-C[i]);
+            valuesZip[i]=valuesCenter[i]+_beta*(points[_H][i]-valuesCenter[i]);
         }
-        return Z;
+        return valuesZip;
     }
 
+    /**
+     * Функция редукции вершин симплекса
+     * @param points - массив вершин симплекса
+     *               Пересчитывает вершины симплекса
+     */
     public void functionReducting(double[][] points){
         for(int j=0;j<_NDIM+1;j++) {
             for(int k=0;k<=_NDIM-1;k++) {
@@ -119,6 +178,13 @@ public class SearchDifferential {
         }
     }
 
+    /**
+     * Функция переприсваивания вершин симплекса
+     * (убирает переизбыток циклов в коде)
+     * @param points - массив вершин симплекса
+     * @param imp - имплекант переприсваивания
+     * @return Массив переприсвоиных вершин
+     */
     public double[][] functionReAssignment(double[][] points, double[] imp){
         for (int k = 0; k < _NDIM; k++) {
             points[_H][k] = imp[k];
@@ -126,54 +192,58 @@ public class SearchDifferential {
         return points;
     }
 
+    /**
+     * Метод Нелдера-Мида
+     * @return Массив точек в которых находится минимум функции
+     */
     public double[] methodNelderMead(){
         double[][] points = getRegularSimplex();
         double[] values = getFunctionValues(points);
         getMinMaxIndexsOfPoints(values);
-        double[] C = getCenterOfGravity(points);
-        double[] R, S, Z;
-        while(checkForCompletion(values, C) > _epsilon){
-            R = functionReflecting(points, C);
-            if(f(R) < values[_L]) {
-                S = functionStretching(R, C);
-                if (f(S) < f(R)) {
-                    functionReAssignment(points, S);
+        double[] valuesCenter = getCenterOfGravity(points);
+        double[] valuesReflect, valuesStretch, valuesZip;
+        _iteration = 0;
+        while(checkForCompletion(values, valuesCenter) > _epsilon){
+            valuesReflect = functionReflecting(points, valuesCenter);
+            if(f(valuesReflect) < values[_L]) {
+                valuesStretch = functionStretching(valuesReflect, valuesCenter);
+                if (f(valuesStretch) < f(valuesReflect)) {
+                    functionReAssignment(points, valuesStretch);
                 } else {
-                    functionReAssignment(points, R);
+                    functionReAssignment(points, valuesReflect);
                 }
             } else {
-                if (checkForStretching(values, R)) {
-                    if (f(R)< values[_H]) {
-                        functionReAssignment(points, R);
+                if (checkForStretching(values, valuesReflect)) {
+                    if (f(valuesReflect)< values[_H]) {
+                        functionReAssignment(points, valuesReflect);
                     }
-                    Z = functionZipping(C, points);
-                    if (f(Z) < values[_H]) {
-                        functionReAssignment(points, Z);
+                    valuesZip = functionZipping(valuesCenter, points);
+                    if (f(valuesZip) < values[_H]) {
+                        functionReAssignment(points, valuesZip);
                     } else {
                         functionReducting(points);
                     }
                 } else {
-                    functionReAssignment(points, R);
+                    functionReAssignment(points, valuesReflect);
                 }
             }
             values = getFunctionValues(points);
             getMinMaxIndexsOfPoints(values);
-            C = getCenterOfGravity(points);
+            valuesCenter = getCenterOfGravity(points);
+            _iteration++;
         }
-        return C;
+        return valuesCenter;
     }
-    /*
-    ____________________________________________________________________________________________________________________
-    ____________________________________________________________________________________________________________________
-    ____________________________________________________________________________________________________________________
-    ____________________________________________________________________________________________________________________
-    ____________________________________________________________________________________________________________________
-     */
 
+    /**
+     * Метод получения градиента вектора
+     * @param vector - массив координат вектора
+     * @return Массив значений градиента вектора
+     */
     private double[] getGradient(double[] vector){
         double step = 1e-1;
-        double[] grad = new double[_NDIM], temp = new double[_NDIM];
-
+        double[] gradient = new double[_NDIM],
+                 temp = new double[_NDIM];
         for (byte i = 0; i < _NDIM; i++) {
             for(byte j = 0; j < _NDIM; j++){
                 if(i == j){
@@ -182,49 +252,58 @@ public class SearchDifferential {
                 }
                 temp[j] = vector[j];
             }
-            grad[i] = (f(temp) - f(vector)) / step;
+            gradient[i] = (f(temp) - f(vector)) / step;
         }
-        return grad;
+        return gradient;
     }
 
+    /**
+     * Метод длины результирующего вектора
+     * @param vector - массив координат вектора
+     * @return Сумму длины результирующего вектора
+     */
     private double getNorm(double[] vector) {
         double result = 0;
-        for (double aVector : vector) {
-            result += aVector * aVector;
+        for (double v : vector) {
+            result += v * v;
         }
         return Math.sqrt(result);
-
     }
 
-    /*public double DichotomySearch(double delta, double e, double a, double b, double[] u) {
-        double x_1 = (a + b)/ 2 - e;
-        double x_2 = (a + b)/ 2 + e;
-        double _delta = b-a;
-        while(delta < _delta) {
-            if(fun(x_1, u) <= fun(x_2, u)) {
-                b = x_2;
-            }
-            else {
-                a = x_1;
-            }
-            x_1 = (a + b) / 2 - e;
-            x_2 = (a + b) / 2 + e;
-            _delta = b - a;
+    /**
+     * Метод выбора направления спуска, вспомогательный для метода дихотомии
+     * @param vector - массив координат вектора
+     * @param a - альфа
+     * @return Значение функции
+     */
+    private double getNextPoint(double[] vector, double a) {
+        double[] gradient = getGradient(vector);
+        double[] u = new double[vector.length];
+        for (int i = 0; i < u.length; i++) {
+            u[i] = vector[i] - a * gradient[0];
         }
-        return (a + b) / 2;
-    }*/
+        return f(u);
+    }
 
-    private double DichotomySearch(double a, double b, double[] u, double e) {
-        double del = e / 10;
+    /**
+     * Метод Дихотомии (для поиска минимума функции)
+     * @param a - левая граница интервала
+     * @param b - правая граница интервала
+     * @param vector - массив координат вектора
+     * @param e - эпсилон
+     * @param delta - кратчайшие расстояние
+     * @return Значение минимального экстремума заданной функции
+     */
+    private double searchDichotomy(double a, double b, double[] vector, double e, double delta) {
         double x1, x2;
         do {
-            x1 = (b + a - del) / 2;
-            x2 = (b + a + del) / 2;
-            double i1 = getNextPoint(x1, u);
-            double i2 = getNextPoint(x2, u);
-            if (i1 < i2) {
+            x1 = (b + a - delta) / 2;
+            x2 = (b + a + delta) / 2;
+            double fx_1 = getNextPoint(vector, x1);
+            double fx_2 = getNextPoint(vector, x2);
+            if (fx_1 < fx_2) {
                 b = x2;
-            } else if (i1 > i2) {
+            } else if (fx_1 > fx_2) {
                 a = x1;
             } else {
                 a = x1;
@@ -235,29 +314,24 @@ public class SearchDifferential {
         return (b + a) / 2;
     }
 
-    // Вспомогательная функция для выбора направления спуска методом дихотомии
-    private double getNextPoint(double alpha, double[] u0) {
-        double[] gradI0 = getGradient(u0);
-
-        double[] u = new double[u0.length];
-        for (int i = 0; i < u.length; i++) {
-            u[i] = u0[i] - alpha * gradI0[0];
-        }
-        return f(u);
-    }
-
-
-
-    public double[] findBySteepestDescent(double[] u, double eps) {
-        double[] gradI0 = getGradient(u);
-        while (Math.abs(getNorm(gradI0)) > eps) {
+    /**
+     *Метод наискорейшего спуска
+     * @param startVector - начальный вектор приближения
+     * @param eps - эпсилон
+     * @return Массив точек в которых находится минимум функции
+     */
+    public double[] methodGradientDescent(double[] startVector, double eps) {
+        double[] gradient = getGradient(startVector);
+        _iteration = 0;
+        while (Math.abs(getNorm(gradient)) > eps) {
             double b = 1;
-            double alpha = DichotomySearch(0, b, u, eps);
-            for (int i = 0; i < u.length; i++) {
-                u[i] -= alpha * gradI0[i];
+            double alpha = searchDichotomy(0, b, startVector, eps, eps / 10);
+            for (int i = 0; i < startVector.length; i++) {
+                startVector[i] -= alpha * gradient[i];
             }
-            gradI0 = getGradient(u);
+            gradient = getGradient(startVector);
+            _iteration++;
         }
-        return u;
+        return startVector;
     }
 }
